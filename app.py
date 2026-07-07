@@ -214,15 +214,19 @@ st.markdown("---")
 # 4. 메인 화면 입력부 레이아웃
 st.markdown(f'<p class="section-header">{T["input_header"]}</p>', unsafe_allow_html=True)
 
-# 모델 드롭다운 리스트 동적 구성
-model_options = [T["model_custom"]] + list(MODEL_DATABASE.keys())
+# [수정] 1. 검색어 입력창을 상단에 새로 배치합니다.
+search_query = st.text_input("🔍 품명 / 모델명 검색 (Tìm kiếm mã hàng)", "")
+
+# [수정] 2. 입력된 검색어가 포함된 모델만 90개 중에서 필터링합니다.
+filtered_models = [m for m in list(MODEL_DATABASE.keys()) if search_query.lower() in m.lower()]
+
+# [수정] 3. 필터링된 모델들로만 드롭다운 리스트를 재구성합니다.
+model_options = [T["model_custom"]] + filtered_models
 selected_model = st.selectbox(T["model_select"], model_options)
 
 default_area = 0
 if selected_model != T["model_custom"]:
     default_area = MODEL_DATABASE[selected_model]
-
-# 입력창 2열 배치
 col_in1, col_in2 = st.columns(2)
 with col_in1:
     prod_area_mm2 = st.number_input(T["area_label"], min_value=0, value=default_area, step=1000)
