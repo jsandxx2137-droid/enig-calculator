@@ -1,10 +1,59 @@
 import streamlit as st
 
-# 웹페이지 기본 설정
+# 웹페이지 기본 설정 (타이틀 및 와이드 레이아웃)
 st.set_page_config(page_title="ENIG Loading Factor Simulator", layout="centered")
 
-st.title("🧪 ENIG 제품/더미별 Loading Factor 계산기")
-st.markdown("현장 모니터링 및 시뮬레이션용 웹 프로그램입니다.")
+# 고급스러운 커스텀 디자인을 위한 스타일 CSS 주입
+st.markdown("""
+    <style>
+    /* 전체 폰트 및 배경 스타일 정돈 */
+    html, body, [data-testid="stAppViewContainer"] {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    /* 메인 타이틀 스타일 */
+    .main-title {
+        font-size: 28px !important;
+        font-weight: 800 !important;
+        color: #1E3A8A;
+        margin-bottom: 5px !important;
+    }
+    /* 결과 카드 스타일 */
+    .result-card {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    /* 가장 중요한 최종 결과 텍스트 왕대박 크게 */
+    .total-score {
+        font-size: 40px !important;
+        font-weight: 900 !important;
+        color: #0284C7;
+        text-align: center;
+        padding: 15px 0;
+        background: #F0F9FF;
+        border-radius: 8px;
+        border: 2px dashed #0EA5E9;
+        margin: 10px 0;
+    }
+    /* 서브 타이틀 세션 스타일 */
+    .section-header {
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        color: #334155;
+        border-left: 5px solid #0EA5E9;
+        padding-left: 10px;
+        margin-top: 25px;
+        margin-bottom: 15px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 메인 헤더 타이틀 부 구역
+st.markdown('<p class="main-title">🧪 ENIG Loading Factor 시뮬레이터</p>', unsafe_allow_html=True)
+st.caption("공정 조건 및 제품/더미 수량을 입력하여 실시간 부하율을 모니터링하세요.")
 st.markdown("---")
 
 # ==========================================
@@ -18,56 +67,73 @@ MODEL_DATABASE = {
     "AMUA30PU01_P2_POR_HYBRIDE": 127204
 }
 
-# 1. 설비 및 공정 조건 입력 세션
-st.sidebar.header("⚙ 기본 공정 조건 설정")
-tank_volume = st.sidebar.number_input("1. 도금조 볼륨 (L)", min_value=1.0, value=820.0, step=10.0)
-fixed_dummy_loading = st.sidebar.number_input("4. 더미 1 PNL당 고유 부하율 (dm²/L)", min_value=0.0, value=0.04878049, format="%.8f")
+# 1. 왼쪽 사이드바 공정 설정 구역 디자인
+st.sidebar.markdown("### ⚙ 공정 기본 스펙")
+tank_volume = st.sidebar.number_input("도금조 용량 (Volume, L)", min_value=1.0, value=820.0, step=10.0)
+fixed_dummy_loading = st.sidebar.number_input("더미 1 PNL당 고유 부하율 (dm²/L)", min_value=0.0, value=0.04878049, format="%.8f")
 
-st.header("📋 투입 데이터 입력")
+# 2. 메인 화면 입력부 레이아웃 정돈
+st.markdown('<p class="section-header">투입 공정 데이터 입력</p>', unsafe_allow_html=True)
 
-# 2. 제품 모델 선택 드롭다운
-selected_model = st.selectbox("2. 제품 모델명 선택 (Raw Data)", list(MODEL_DATABASE.keys()))
-
-# 모델 선택에 따른 면적 자동 설정
+# 모델 선택부
+selected_model = st.selectbox("품명 / 모델명 선택", list(MODEL_DATABASE.keys()))
 default_area = MODEL_DATABASE[selected_model]
-prod_area_mm2 = st.number_input("   └ 선택 모델 PNL 면적 (mm²)", min_value=0, value=default_area, step=1000)
 
-# 수량 입력
-input_pnl = st.number_input("3. 투입할 제품 수량 (PNL)", min_value=0, value=20, step=1)
-dummy_pnl = st.number_input("5. 투입할 더미 수량 (PNL)", min_value=0, value=5, step=1)
+# 입력 편의를 위해 2열 배치 (면적 입력과 제품 수량)
+col_in1, col_in2 = st.columns(2)
+with col_in1:
+    prod_area_mm2 = st.number_input("선택 모델 PNL 면적 (mm²)", min_value=0, value=default_area, step=1000)
+with col_in2:
+    input_pnl = st.number_input("제품 투입 수량 (PNL)", min_value=0, value=30, step=1)
 
-st.markdown("---")
+# 더미 수량 입력은 아래에 깔끔하게 배치
+dummy_pnl = st.number_input("추가 더미 투입 수량 (PNL)", min_value=0, value=4, step=1)
 
-# 3. 실시간 계산 로직
-if st.button("📊 각 부하율(Loading Factor) 자동 계산하기", type="primary"):
-    try:
-        # 제품 부하율 계산
-        prod_area_dm2 = (prod_area_mm2 / 10000) * input_pnl
-        prod_loading = prod_area_dm2 / tank_volume
+st.markdown("<br>", unsafe_allow_html=True)
+
+# 3. 계산 및 시각화 구역
+if st.button("📊 부하율 실시간 시뮬레이션 개시", type="primary", use_container_width=True):
+    # 계산식 실행
+    prod_area_dm2 = (prod_area_mm2 / 10000) * input_pnl
+    prod_loading = prod_area_dm2 / tank_volume
+    dummy_loading = fixed_dummy_loading * dummy_pnl
+    total_loading = prod_loading + dummy_loading
+    
+    # 시뮬레이션 결과 섹션 디자인
+    st.markdown('<p class="section-header">Loading Factor 시뮬레이션 결과</p>', unsafe_allow_html=True)
+    
+    # 2열 카드로 개별 기여도 노출
+    col_res1, col_res2 = st.columns(2)
+    with col_res1:
+        st.markdown(f"""
+        <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 14px; color: #64748B; font-weight: 600;">① 제품 자체 부하율</span><br>
+            <span style="font-size: 22px; font-weight: 700; color: #334155;">{prod_loading:.5f} <span style="font-size:14px;">dm²/L</span></span>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # 더미 부하율 계산
-        dummy_loading = fixed_dummy_loading * dummy_pnl
+    with col_res2:
+        st.markdown(f"""
+        <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 14px; color: #64748B; font-weight: 600;">② 추가 더미 부하율</span><br>
+            <span style="font-size: 22px; font-weight: 700; color: #334155;">{dummy_loading:.5f} <span style="font-size:14px;">dm²/L</span></span>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # 합산 최종 부하율
-        total_loading = prod_loading + dummy_loading
-        
-        # 결과 화면 출력
-        st.header("🎯 Loading Factor 시뮬레이션 결과")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(label="① 제품 자체 Loading Factor", value=f"{prod_loading:.5f} dm²/L")
-        with col2:
-            st.metric(label="② 추가 더미 Loading Factor", value=f"{dummy_loading:.5f} dm²/L")
-            
-        st.success(f"▣ 최종 합산 Loading Factor (① + ②) : **{total_loading:.5f} dm²/L**")
-        
-        # 상세 데이터 내역 출력
-        st.markdown("### 🔍 상세 내역")
-        st.text(f"• 제품 총 면적: {prod_area_dm2:.2f} dm²\n"
-                f"• 더미 1 PNL당 고유 부하율: {fixed_dummy_loading:.8f} dm²/L\n"
-                f"• 투입 더미 총 부하율 기여도: {dummy_loading:.5f} dm²/L\n"
-                f"• 전체 합산 기여 면적 환산값: {(prod_area_dm2 + (dummy_loading * tank_volume)):.2f} dm²")
-                
-    except Exception as e:
-        st.error(f"계산 중 오류가 발생했습니다. 입력값을 확인해 주세요. ({e})")
+    # 종합 최종 결과 대형 카드 출력
+    st.markdown(f"""
+    <div class="result-card">
+        <div style="text-align: center; font-size: 16px; font-weight: 700; color: #475569;">▣ 최종 합산 Loading Factor (① + ②)</div>
+        <div class="total-score">{total_loading:.5f} dm²/L</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 엔지니어 분석용 세부 내역 데이터
+    with st.expander("🔍 공정 데이터 세부 내역 분석 (접기/펼치기)"):
+        st.markdown(f"""
+        * **제품 총 도금 면적**: `{prod_area_dm2:.2f} dm²`
+        * **더미 1장당 고유 기여도**: `{fixed_dummy_loading:.8f} dm²/L`
+        * **투입 더미 총 부하율 기여도**: `{dummy_loading:.5f} dm²/L`
+        * **전체 합산 가용 면적 환산값**: `{(prod_area_dm2 + (dummy_loading * tank_volume)):.2f} dm²`
+        """)
+
