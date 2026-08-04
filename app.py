@@ -3,7 +3,7 @@ import streamlit as st
 # 웹페이지 기본 설정
 st.set_page_config(page_title="ENIG Loading Factor Simulator", layout="centered")
 
-# 고급스러운 커스텀 디자인 CSS 주입
+# 커스텀 디자인 CSS 주입
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -56,14 +56,13 @@ LANG_DB = {
         "sidebar_title": "⚙️ 공정 기본 스펙",
         "tank_vol": "도금조 용량 (Volume, L)",
         "dummy_loading_unit": "더미 1 PNL당 고유 부하율 (dm²/L)",
-        "input_header": "투입 공정 데이터 입력",
-        "model_select_multi": "품명 / 모델명 다중 선택 (검색 가능)",
-        "model_select_help": "여러 모델을 함께 투입할 때 자유롭게 검색하여 추가하세요.",
-        "pnl_input_header": "📌 선택한 모델별 PNL 수량 입력",
+        "input_header": "투입 공정 데이터 입력 (Basket별)",
+        "basket_count_label": "투입할 Basket 개수 선택",
+        "select_model_placeholder": "모델 선택 (없음 선택 가능)",
         "dummy_pnl": "추가 더미 투입 수량 (PNL)",
         "btn_calc": "📊 부하율 실시간 시뮬레이션 개시",
         "res_header": "Loading Factor 시뮬레이션 결과",
-        "res_prod": "① 제품 전체 부하율 (다중 모델 합산)",
+        "res_prod": "① 제품 전체 부하율 (Basket 합산)",
         "res_dummy": "② 추가 더미 부하율",
         "res_total_title": "▣ 최종 합산 Loading Factor (① + ②)",
         "detail_header": "🔍 공정 데이터 세부 내역 분석 (접기/펼치기)",
@@ -71,22 +70,21 @@ LANG_DB = {
         "detail_dummy_unit": "더미 1장당 고유 기여도",
         "detail_dummy_total": "투입 더미 총 부하율 기여도",
         "detail_area_sum": "전체 합산 가용 면적 환산값",
-        "no_model_warning": "⚠️ 계산할 모델을 최소 1개 이상 선택해 주세요."
+        "no_model_warning": "⚠️ 최소 1개 이상의 Basket에 모델을 선택해 주세요."
     },
     "VI": {
         "title": "🧪 Trình mô phỏng hệ số tải (Loading Factor) ENIG",
-        "subtitle": "Nhập điều kiện công đoạn và số lượng hàng/dummy để theo dõi hệ số tải theo thời gian thực.",
+        "subtitle": "Nhập điều kiện công đoạn 및 số lượng hàng/dummy để theo dõi hệ số tải theo thời gian thực.",
         "sidebar_title": "⚙️ Thông số bể xi cơ bản",
         "tank_vol": "Dung tích bể xi (Volume, L)",
         "dummy_loading_unit": "Hệ số tải cố định của 1 PNL Dummy (dm²/L)",
-        "input_header": "Nhập dữ liệu công đoạn",
-        "model_select_multi": "Chọn nhiều Mã hàng / Model (Có thể tìm kiếm)",
-        "model_select_help": "Tìm kiếm và chọn nhiều model để tính toán cùng lúc.",
-        "pnl_input_header": "📌 Nhập số lượng PNL cho từng Model đã chọn",
+        "input_header": "Nhập dữ liệu công đoạn (Theo Basket)",
+        "basket_count_label": "Chọn số lượng Basket sử dụng",
+        "select_model_placeholder": "Chọn Model (Có thể chọn Không)",
         "dummy_pnl": "Số lượng Dummy bỏ thêm (PNL)",
         "btn_calc": "📊 Bắt đầu mô phỏng hệ số tải",
         "res_header": "Kết quả mô phỏng Hệ số tải (Loading Factor)",
-        "res_prod": "① Hệ số tải của tất cả sản phẩm (Tổng nhiều Model)",
+        "res_prod": "① Hệ số tải của sản phẩm (Tổng các Basket)",
         "res_dummy": "② Hệ số tải của Dummy bỏ thêm",
         "res_total_title": "▣ Tổng hệ số tải cuối cùng (① + ②)",
         "detail_header": "🔍 Phân tích chi tiết dữ liệu công đoạn (Đóng/Mở)",
@@ -94,7 +92,7 @@ LANG_DB = {
         "detail_dummy_unit": "Mức độ ảnh hưởng cố định của 1 tấm Dummy",
         "detail_dummy_total": "Tổng hệ số tải đóng góp của Dummy",
         "detail_area_sum": "Giá trị quy đổi tổng diện tích khả dụng",
-        "no_model_warning": "⚠️ Vui lòng chọn ít nhất 1 model từ danh sách."
+        "no_model_warning": "⚠️ Vui lòng chọn ít nhất 1 model cho Basket."
     }
 }
 
@@ -119,7 +117,6 @@ st.sidebar.markdown("### 🌐 Language / 언어 선택")
 lang_select = st.sidebar.radio("Choose Language", ["한국어", "Tiếng Việt"], label_visibility="collapsed")
 lang = "KO" if lang_select == "한국어" else "VI"
 
-# 번역 사전 연결
 T = LANG_DB[lang]
 
 # 2. 사이드바 - 공정 설정 구역
@@ -132,40 +129,53 @@ st.markdown(f'<p class="main-title">{T["title"]}</p>', unsafe_allow_html=True)
 st.caption(T["subtitle"])
 st.markdown("---")
 
-# 4. 메인 화면 입력부 레이아웃
+# 4. 메인 화면 - Basket별 모델 입력부
 st.markdown(f'<p class="section-header">{T["input_header"]}</p>', unsafe_allow_html=True)
 
-# 다중 모델 선택 드롭다운
-selected_models = st.multiselect(
-    T["model_select_multi"],
-    options=list(MODEL_DATABASE.keys()),
-    help=T["model_select_help"]
-)
+# 사용자가 Basket 개수를 선택할 수 있도록 함 (기본 2개, 최대 6개)
+num_baskets = st.number_input(T["basket_count_label"], min_value=1, max_value=6, value=2, step=1)
+
+# 드롭다운 옵션 목록 (맨 앞에 빈 선택지 추가)
+model_options = ["--- 선택 (None) ---"] + list(MODEL_DATABASE.keys())
 
 total_prod_area_mm2 = 0.0
+has_selected_model = False
 
-if selected_models:
-    st.markdown(f"##### {T['pnl_input_header']}")
+st.markdown("<br>", unsafe_allow_html=True)
+
+# 지정된 Basket 개수만큼 동적 레이아웃 생성
+for i in range(int(num_baskets)):
+    basket_num = i + 1
+    col_label, col_model, col_qty = st.columns([1, 2.5, 1.5])
     
-    # 선택된 모델별 PNL 수량 입력 필드 동적 생성
-    for model_name in selected_models:
-        unit_area = MODEL_DATABASE[model_name]
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.write(f"• **{model_name}** (1 PNL: `{unit_area:,} mm²`)")
-        with col2:
-            pnl_count = st.number_input(
-                f"PNL ({model_name})",
-                min_value=0,
-                value=30,
-                step=1,
-                key=f"pnl_{model_name}",
-                label_visibility="collapsed"
-            )
-        total_prod_area_mm2 += unit_area * pnl_count
-    st.markdown("---")
-else:
-    st.info(T["no_model_warning"])
+    with col_label:
+        st.markdown(f"**🧺 {basket_num} Basket**")
+        
+    with col_model:
+        selected_m = st.selectbox(
+            f"Model_{basket_num}",
+            options=model_options,
+            key=f"basket_model_{basket_num}",
+            label_visibility="collapsed"
+        )
+        
+    with col_qty:
+        pnl_qty = st.number_input(
+            f"PNL_{basket_num}",
+            min_value=0,
+            value=15 if selected_m != "--- 선택 (None) ---" else 0,
+            step=1,
+            key=f"basket_qty_{basket_num}",
+            label_visibility="collapsed"
+        )
+        
+    # 모델 선택 시 면적 합산
+    if selected_m != "--- 선택 (None) ---":
+        unit_area = MODEL_DATABASE[selected_m]
+        total_prod_area_mm2 += unit_area * pnl_qty
+        has_selected_model = True
+
+st.markdown("---")
 
 # 추가 더미 PNL 입력
 dummy_pnl = st.number_input(T["dummy_pnl"], min_value=0, value=4, step=1)
@@ -174,7 +184,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # 5. 계산 및 시각화 구역
 if st.button(T["btn_calc"], type="primary", use_container_width=True):
-    if not selected_models:
+    if not has_selected_model:
         st.error(T["no_model_warning"])
     else:
         # mm² -> dm² 환산 (1 dm² = 10,000 mm²)
@@ -185,7 +195,7 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
         
         st.markdown(f'<p class="section-header">{T["res_header"]}</p>', unsafe_allow_html=True)
         
-        # 2열 카드로 제품/더미 결과 노출
+        # 결과 요약
         col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.markdown(f"""
@@ -203,7 +213,7 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
             </div>
             """, unsafe_allow_html=True)
             
-        # 종합 최종 결과 대형 카드 출력
+        # 종합 최종 결과 카드
         st.markdown(f"""
         <div class="result-card">
             <div style="text-align: center; font-size: 16px; font-weight: 700; color: #475569;">{T['res_total_title']}</div>
@@ -211,7 +221,7 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
         </div>
         """, unsafe_allow_html=True)
         
-        # 엔지니어 분석용 세부 내역 데이터
+        # 세부 내역
         with st.expander(T["detail_header"]):
             st.markdown(f"""
             * **{T['detail_prod_area']}**: `{prod_area_dm2:.2f} dm²`
