@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 웹페이지 기본 설정
-st.set_page_config(page_title="ENIG Loading Factor Simulator", layout="centered")
+st.set_page_config(page_title="ENIG Loading Factor Simulator", layout="wide")
 
 # 커스텀 디자인 CSS 주입
 st.markdown("""
@@ -43,6 +43,12 @@ st.markdown("""
         margin-top: 25px;
         margin-bottom: 15px;
     }
+    .table-col-header {
+        font-size: 13px;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 5px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -58,7 +64,10 @@ LANG_DB = {
         "dummy_loading_unit": "더미 1 PNL당 고유 부하율 (dm²/L)",
         "input_header": "투입 공정 데이터 입력 (Basket별)",
         "basket_count_label": "투입할 Basket 개수 선택",
-        "select_model_placeholder": "모델 선택 (없음 선택 가능)",
+        "col_basket": "구분",
+        "col_model": "품명 / 모델명",
+        "col_area": "1 PNL 면적 (mm²)",
+        "col_qty": "투입 수량 (PNL)",
         "dummy_pnl": "추가 더미 투입 수량 (PNL)",
         "btn_calc": "📊 부하율 실시간 시뮬레이션 개시",
         "res_header": "Loading Factor 시뮬레이션 결과",
@@ -70,17 +79,20 @@ LANG_DB = {
         "detail_dummy_unit": "더미 1장당 고유 기여도",
         "detail_dummy_total": "투입 더미 총 부하율 기여도",
         "detail_area_sum": "전체 합산 가용 면적 환산값",
-        "no_model_warning": "⚠️ 최소 1개 이상의 Basket에 모델을 선택해 주세요."
+        "no_model_warning": "⚠️ 최소 1개 이상의 Basket에 모델과 면적을 입력해 주세요."
     },
     "VI": {
         "title": "🧪 Trình mô phỏng hệ số tải (Loading Factor) ENIG",
-        "subtitle": "Nhập điều kiện công đoạn 및 số lượng hàng/dummy để theo dõi hệ số tải theo thời gian thực.",
+        "subtitle": "Nhập điều kiện công đoạn và số lượng hàng/dummy để theo dõi hệ số tải theo thời gian thực.",
         "sidebar_title": "⚙️ Thông số bể xi cơ bản",
         "tank_vol": "Dung tích bể xi (Volume, L)",
         "dummy_loading_unit": "Hệ số tải cố định của 1 PNL Dummy (dm²/L)",
         "input_header": "Nhập dữ liệu công đoạn (Theo Basket)",
         "basket_count_label": "Chọn số lượng Basket sử dụng",
-        "select_model_placeholder": "Chọn Model (Có thể chọn Không)",
+        "col_basket": "Phân loại",
+        "col_model": "Tên Model / Mã hàng",
+        "col_area": "Diện tích 1 PNL (mm²)",
+        "col_qty": "Số lượng (PNL)",
         "dummy_pnl": "Số lượng Dummy bỏ thêm (PNL)",
         "btn_calc": "📊 Bắt đầu mô phỏng hệ số tải",
         "res_header": "Kết quả mô phỏng Hệ số tải (Loading Factor)",
@@ -92,7 +104,7 @@ LANG_DB = {
         "detail_dummy_unit": "Mức độ ảnh hưởng cố định của 1 tấm Dummy",
         "detail_dummy_total": "Tổng hệ số tải đóng góp của Dummy",
         "detail_area_sum": "Giá trị quy đổi tổng diện tích khả dụng",
-        "no_model_warning": "⚠️ Vui lòng chọn ít nhất 1 model cho Basket."
+        "no_model_warning": "⚠️ Vui lòng chọn Model và nhập diện tích cho ít nhất 1 Basket."
     }
 }
 
@@ -133,26 +145,36 @@ st.markdown("---")
 # 4. 메인 화면 - Basket별 모델 입력부
 st.markdown(f'<p class="section-header">{T["input_header"]}</p>', unsafe_allow_html=True)
 
-# 사용자가 Basket 개수를 선택할 수 있도록 함 (기본 2개, 최대 6개)
+# 바스켓 개수 선택 (기본 2개, 최대 6개)
 num_baskets = st.number_input(T["basket_count_label"], min_value=1, max_value=6, value=2, step=1)
 
-# 드롭다운 옵션 목록 (맨 앞에 빈 선택지 추가)
-model_options = ["--- 선택 (None) ---"] + list(MODEL_DATABASE.keys())
+# 드롭다운 옵션 목록 (맨 앞에 직접 입력 옵션 추가)
+model_options = ["--- 직접 입력 (Nhập trực tiếp) ---"] + list(MODEL_DATABASE.keys())
+
+# 테이블 헤더 라벨 표시
+st.markdown("<br>", unsafe_allow_html=True)
+hdr1, hdr2, hdr3, hdr4 = st.columns([1.0, 2.5, 1.8, 1.2])
+with hdr1:
+    st.markdown(f"<div class='table-col-header'>{T['col_basket']}</div>", unsafe_allow_html=True)
+with hdr2:
+    st.markdown(f"<div class='table-col-header'>{T['col_model']}</div>", unsafe_allow_html=True)
+with hdr3:
+    st.markdown(f"<div class='table-col-header'>{T['col_area']}</div>", unsafe_allow_html=True)
+with hdr4:
+    st.markdown(f"<div class='table-col-header'>{T['col_qty']}</div>", unsafe_allow_html=True)
 
 total_prod_area_mm2 = 0.0
-has_selected_model = False
+has_valid_input = False
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# 지정된 Basket 개수만큼 동적 레이아웃 생성
+# Basket 행 동적 생성
 for i in range(int(num_baskets)):
     basket_num = i + 1
-    col_label, col_model, col_qty = st.columns([1, 2.5, 1.5])
+    col_b, col_m, col_a, col_q = st.columns([1.0, 2.5, 1.8, 1.2])
     
-    with col_label:
+    with col_b:
         st.markdown(f"**🧺 {basket_num} Basket**")
         
-    with col_model:
+    with col_m:
         selected_m = st.selectbox(
             f"Model_{basket_num}",
             options=model_options,
@@ -160,21 +182,33 @@ for i in range(int(num_baskets)):
             label_visibility="collapsed"
         )
         
-    with col_qty:
-        pnl_qty = st.number_input(
-            f"PNL_{basket_num}",
+    # 모델 선택 시 해당 모델의 기본 면적 자동 세팅
+    auto_area = MODEL_DATABASE.get(selected_m, 0)
+    
+    with col_a:
+        # 면적을 눈으로 확인하고, 필요 시 직접 수정할 수도 있는 입력칸
+        pnl_area = st.number_input(
+            f"Area_{basket_num}",
             min_value=0,
-            value=15 if selected_m != "--- 선택 (None) ---" else 0,
+            value=auto_area,
+            step=1000,
+            key=f"basket_area_{basket_num}",
+            label_visibility="collapsed"
+        )
+        
+    with col_q:
+        pnl_qty = st.number_input(
+            f"Qty_{basket_num}",
+            min_value=0,
+            value=15 if pnl_area > 0 else 0,
             step=1,
             key=f"basket_qty_{basket_num}",
             label_visibility="collapsed"
         )
         
-    # 모델 선택 시 면적 합산
-    if selected_m != "--- 선택 (None) ---":
-        unit_area = MODEL_DATABASE[selected_m]
-        total_prod_area_mm2 += unit_area * pnl_qty
-        has_selected_model = True
+    if pnl_area > 0 and pnl_qty > 0:
+        total_prod_area_mm2 += pnl_area * pnl_qty
+        has_valid_input = True
 
 st.markdown("---")
 
@@ -185,7 +219,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # 5. 계산 및 시각화 구역
 if st.button(T["btn_calc"], type="primary", use_container_width=True):
-    if not has_selected_model:
+    if not has_valid_input:
         st.error(T["no_model_warning"])
     else:
         # mm² -> dm² 환산 (1 dm² = 10,000 mm²)
@@ -196,7 +230,7 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
         
         st.markdown(f'<p class="section-header">{T["res_header"]}</p>', unsafe_allow_html=True)
         
-        # 결과 요약
+        # 2열 카드 요약
         col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.markdown(f"""
@@ -222,7 +256,7 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
         </div>
         """, unsafe_allow_html=True)
         
-        # 세부 내역
+        # 엔지니어 분석용 세부 내역 데이터
         with st.expander(T["detail_header"]):
             st.markdown(f"""
             * **{T['detail_prod_area']}**: `{prod_area_dm2:.2f} dm²`
