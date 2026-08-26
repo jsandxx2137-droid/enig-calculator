@@ -125,7 +125,7 @@ MODEL_DATABASE = {
     "AMUA30PU01_EVT": 126760,
 }
 
-# 1. 사이드바 - 언어 선택 기능 최상단 배치
+# 1. 사이드바 - 언어 선택 최상단 배치
 st.sidebar.markdown("### 🌐 Language / 언어 선택")
 lang_select = st.sidebar.radio("Choose Language", ["한국어", "Tiếng Việt"], label_visibility="collapsed")
 lang = "KO" if lang_select == "한국어" else "VI"
@@ -145,13 +145,10 @@ st.markdown("---")
 # 4. 메인 화면 - Basket별 모델 입력부
 st.markdown(f'<p class="section-header">{T["input_header"]}</p>', unsafe_allow_html=True)
 
-# 바스켓 개수 선택 (기본 2개, 최대 6개)
 num_baskets = st.number_input(T["basket_count_label"], min_value=1, max_value=6, value=2, step=1)
 
-# 드롭다운 옵션 목록 (맨 앞에 직접 입력 옵션 추가)
 model_options = ["--- 직접 입력 (Nhập trực tiếp) ---"] + list(MODEL_DATABASE.keys())
 
-# 테이블 헤더 라벨 표시
 st.markdown("<br>", unsafe_allow_html=True)
 hdr1, hdr2, hdr3, hdr4 = st.columns([1.0, 2.5, 1.8, 1.2])
 with hdr1:
@@ -166,7 +163,6 @@ with hdr4:
 total_prod_area_mm2 = 0.0
 has_valid_input = False
 
-# Basket 행 동적 생성
 for i in range(int(num_baskets)):
     basket_num = i + 1
     col_b, col_m, col_a, col_q = st.columns([1.0, 2.5, 1.8, 1.2])
@@ -182,15 +178,14 @@ for i in range(int(num_baskets)):
             label_visibility="collapsed"
         )
         
-    # 모델 선택 시 해당 모델의 기본 면적 자동 세팅
-    auto_area = MODEL_DATABASE.get(selected_m, 0)
+    # 모델을 선택하면 데이터베이스에서 면적을 자동으로 가져오도록 연결
+    default_area = MODEL_DATABASE.get(selected_m, 0)
     
     with col_a:
-        # 면적을 눈으로 확인하고, 필요 시 직접 수정할 수도 있는 입력칸
         pnl_area = st.number_input(
             f"Area_{basket_num}",
             min_value=0,
-            value=auto_area,
+            value=default_area,
             step=1000,
             key=f"basket_area_{basket_num}",
             label_visibility="collapsed"
@@ -212,7 +207,6 @@ for i in range(int(num_baskets)):
 
 st.markdown("---")
 
-# 추가 더미 PNL 입력
 dummy_pnl = st.number_input(T["dummy_pnl"], min_value=0, value=4, step=1)
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -222,7 +216,6 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
     if not has_valid_input:
         st.error(T["no_model_warning"])
     else:
-        # mm² -> dm² 환산 (1 dm² = 10,000 mm²)
         prod_area_dm2 = total_prod_area_mm2 / 10000.0
         prod_loading = prod_area_dm2 / tank_volume
         dummy_loading = fixed_dummy_loading * dummy_pnl
@@ -230,7 +223,6 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
         
         st.markdown(f'<p class="section-header">{T["res_header"]}</p>', unsafe_allow_html=True)
         
-        # 2열 카드 요약
         col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.markdown(f"""
@@ -248,7 +240,6 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
             </div>
             """, unsafe_allow_html=True)
             
-        # 종합 최종 결과 카드
         st.markdown(f"""
         <div class="result-card">
             <div style="text-align: center; font-size: 16px; font-weight: 700; color: #475569;">{T['res_total_title']}</div>
@@ -256,7 +247,6 @@ if st.button(T["btn_calc"], type="primary", use_container_width=True):
         </div>
         """, unsafe_allow_html=True)
         
-        # 엔지니어 분석용 세부 내역 데이터
         with st.expander(T["detail_header"]):
             st.markdown(f"""
             * **{T['detail_prod_area']}**: `{prod_area_dm2:.2f} dm²`
