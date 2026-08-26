@@ -3,7 +3,7 @@ import streamlit as st
 # 웹페이지 기본 설정
 st.set_page_config(page_title="ENIG Loading Factor Simulator", layout="wide")
 
-# 커스텀 디자인 CSS 주입
+# 커스텀 디자인 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -178,16 +178,17 @@ for i in range(int(num_baskets)):
             label_visibility="collapsed"
         )
         
-    # 모델을 선택하면 데이터베이스에서 면적을 자동으로 가져오도록 연결
-    default_area = MODEL_DATABASE.get(selected_m, 0)
+    # 모델 선택에 따른 기본 면적 매핑
+    auto_area = MODEL_DATABASE.get(selected_m, 0)
     
     with col_a:
+        # 모델 변경 시 Streamlit 캐시를 초기화하도록 key에 selected_m을 결합
         pnl_area = st.number_input(
             f"Area_{basket_num}",
             min_value=0,
-            value=default_area,
+            value=auto_area,
             step=1000,
-            key=f"basket_area_{basket_num}",
+            key=f"area_{basket_num}_{selected_m}",
             label_visibility="collapsed"
         )
         
@@ -197,7 +198,7 @@ for i in range(int(num_baskets)):
             min_value=0,
             value=15 if pnl_area > 0 else 0,
             step=1,
-            key=f"basket_qty_{basket_num}",
+            key=f"qty_{basket_num}_{selected_m}",
             label_visibility="collapsed"
         )
         
