@@ -124,6 +124,7 @@ MODEL_DATABASE = {
     "AMUA10PV01_P2_POR": 110911,
     "AMUA30PU01_EVT": 126760,
     "I282_DROP0": 104856,
+    "AMUA10PV01_EVT(0.0-S1.0): 130338,
 }
 
 # 1. 사이드바 - 언어 선택 최상단 배치
